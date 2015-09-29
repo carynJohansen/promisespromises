@@ -35,7 +35,7 @@ app.get('/', function (request, response) {
 					}
 				})//close db.all
 			})//close db.serialize
-		})
+		}) //close new promise
 	}//close get_regulator_coordinates
 
 	function vcf_python(coordJSON) {
@@ -54,10 +54,9 @@ app.get('/', function (request, response) {
 
 			python.stdout.on('data', function(data) {
 				//sys.print(data.toString())
-				console.log("In python std out!")
 				chunk += data
-				json = JSON.stringify(chunk)
-				resolve(json)
+				//json = JSON.stringify(chunk)
+				resolve(chunk)
 			}) //close stdout.on
 		})
 	} //close vcf_python
@@ -68,13 +67,26 @@ app.get('/', function (request, response) {
 		return vcf_python(rcJSON)
 		//response.json(rcJSON)
 	}).then(function(vcf) {
-		return vcf = JSON.parse(vcf)
-	}).then(function(vcfJSON) {
-		console.log(vcfJSON)
-		response.json(vcfJSON)
+		var vcfObj = new Object()
+		try {
+			vcfObj = JSON.stringify(vcf)
+			vcfObj = JSON.parse(vcfObj)
+		} catch (e) {
+			console.log('oh no error!')
+			console.log(e instanceof SyntaxError)
+			console.log(e.message)
+		}
+		response.end(vcfObj)
 	}).catch(function(reason) {
 		console.log(reason)
 	})
+
+//	.then(function(vcfJSON) {
+//		console.log(vcfJSON)
+//		response.json(vcfJSON)
+//	}).catch(function(reason) {
+//		console.log(reason)
+//	})
 
 
 //	var someAsyncThing = function() {
