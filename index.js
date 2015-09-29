@@ -16,127 +16,77 @@ var template = 'Node app is running at localhost: {port~number}'
 var txt = template.replace('{port~number}', app.get('port'))
 
 app.get('/', function (request, response) {
-//	function coordinates() {
-//		var regGL = "LOC_Os03g12350"
-//		var sql_query = "SELECT gm.start, gm.end, gm.seqid as chrom \
-//				FROM gene_model as gm \
-//				WHERE (gm.gene_locus = ?)"
-//		this.get_regulator_coordinates = function(callback){
-//			this.db.all(sql_query, regGL, function(err, rows) {
-//				//console.log("In db.all in get_coordinates()")
-//				if (err) {
-//					console.log('Error: ' + err)
-//				} else {
-//					console.log("rows in get_regulator_coordinates: " + rows[0])
-//					callback(rows)
-//					return
-//				}
-//			}) //close db.all
-//		} //close get_regulator_coordinates
-//	}
 
 	function get_regulator_coordinates() {
-		db.serialize( function () {
-			var regGL = "LOC_Os03g12350"
-			var sql_query = "SELECT gm.start, gm.end, gm.seqid as chrom \
-			FROM gene_model as gm \
-			WHERE (gm.gene_locus = ?)"
-			db.all(sql_query, regGL, function(err, rows) {
+		return new Promise(function(resolve, reject) {
+			db.serialize( function () {
+				var regGL = "LOC_Os03g12350"
+				var sql_query = "SELECT gm.start, gm.end, gm.seqid as chrom \
+					FROM gene_model as gm \
+					WHERE (gm.gene_locus = ?)"
+				db.all(sql_query, regGL, function(err, rows) {
 				//console.log("In db.all in get_coordinates()")
-				if (err) {
-					console.log(err)
-				} else {
-					//console.log(regGL)
-					//console.log(rows[0]["start"])
-					return rows[0]
-				}
-			})//close db.all
-		})//close db.serialize
+					if (err) {
+						console.log(err)
+					} else {
+						//console.log(regGL)
+						//console.log(rows[0]["start"])
+						resolve(rows[0])
+					}
+				})//close db.all
+			})//close db.serialize
+		})
 	}//close get_regulator_coordinates
 
-	function vcf_python() {
-		console.log("in vcf_python")
-//		var coordinates
-//		coordinates.get_regulator_coordinates(function(err, rows) {
-//			coordinates = rows
-//		})
-//		console.log(coordinates)
-		//coordinates is a JSON object with start and stop
-		//console.log(coordinates)
-		//var start = json["start"]
-		//var end = coordinates["end"]
-		var python = child.spawn('python',[ __dirname + '/vcf_get.py', 6512743, 6518792, 'Chr3'])
-		var chunk = ''
+	function vcf_python(coordJSON) {
+		return new Promise(function(resolve, reject) {
+			console.log("in vcf_python")
+			//coordinates is a JSON object with start and stop
+			//console.log(coordinates)
+			var start = coordJSON["start"]
+			var end = coordJSON["end"]
+			var chrom = coordJSON["chrom"]
+			console.log("start: " + start)
+			console.log("end: " + end)
 
-		python.stdout.on('data', function(data) {
-			sys.print(data.toString())
-			return data.toString()
-			//console.log("In python std out!")
-			//chunk += data
-			//json = JSON.stringify(chunk)
-			//json = json.replace(/(\n)/, "")
-			//response = JSON.parse(json)
-			//console.log(json)
-			//return json
+			var python = child.spawn('python',[ __dirname + '/vcf_get.py', start, end, chrom])
+			var chunk = ''	
 
-		}) //close stdout.on
+			python.stdout.on('data', function(data) {
+				//sys.print(data.toString())
+				console.log("In python std out!")
+				chunk += data
+				json = JSON.stringify(chunk)
+				resolve(json)
+			}) //close stdout.on
+		})
 	} //close vcf_python
-	
-	async.series([
-		function(callback){
-			vcf_python()
-			callback(null, 'one')
-		},
-		function(callback) {
-			var stuff = get_regulator_coordinates()
-			console.log("here's stuff: " + stuff)
-			callback(null, 'two')
-		}
-	])
-//	var promise = vcf_python()//
-//	
-//	var promise2 = promise.then(function (data) {
-//		return coordinates()
-//	}, function (err) {
-//		console.error(err)
-//	})
-//	promise2.then(console.log, console.error)//
 
-//	var coords = ''
+	var rc = get_regulator_coordinates()
+	rc.then(function(rcJSON) {
+		console.log(rcJSON)
+		return vcf_python(rcJSON)
+		//response.json(rcJSON)
+	}).then(function(vcf) {
+		return vcf = JSON.parse(vcf)
+	}).then(function(vcfJSON) {
+		console.log(vcfJSON)
+		response.json(vcfJSON)
+	}).catch(function(reason) {
+		console.log(reason)
+	})
 
 
-//	var asyncCoordinates = function() {
+//	var someAsyncThing = function() {
 //		return new Promise(function(resolve, reject) {
-//			resolve(get_regulator_coordinates())
+//			resolve(x+2)
 //		})
 //	}
-//	var asyncVCF = function(data) {
-//		return new Promise(function(resolve, reject) {
-//			resolve(vcf_python(data))
-//		})
-//	}//
-
-//	asyncCoordinates().then(function(data) {
-//		console.log('in asyncCoordinates and this is data: ' + data)
-//		return asyncVCF(data)
-//	}).then(function(data) {
-//		console.log(data)
+//	someAsyncThing().then(function() {
+//		console.log('everything is great')
+//	}).catch(function(error) {
+//		console.log('oh no!', error)
 //	})
-		//response.render('content', { coordinates : coord, vcf_block : vcf_stuff })
-
-	
-	//promises()
-
-	var someAsyncThing = function() {
-		return new Promise(function(resolve, reject) {
-			resolve(x+2)
-		})
-	}
-	someAsyncThing().then(function() {
-		console.log('everything is great')
-	}).catch(function(error) {
-		console.log('oh no!', error)
-	})
 })
 
 app.listen(app.get('port'), function() {
